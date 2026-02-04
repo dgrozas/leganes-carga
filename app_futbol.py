@@ -137,7 +137,8 @@ def generar_pdf_oficial(fecha_sel, db):
     pdf.image(tmp_img, x=45, w=120)
     if os.path.exists(tmp_img): os.remove(tmp_img)
 
-    return pdf.output()
+    # CORRECCIÓN PARA STAFF: Forzamos la salida a bytes puros
+    return bytes(pdf.output())
 
 # --- 4. LÓGICA DE NAVEGACIÓN ---
 if 'seccion' not in st.session_state:
@@ -179,12 +180,10 @@ if st.session_state.seccion == 'Inicio':
 elif st.session_state.seccion == 'Jugadores':
     st.header("📋 Registro de Sesión")
     
-    # Al cambiar de jugador, forzamos reseteo del form_key
     nombre_j = st.selectbox("Selecciona tu nombre:", JUGADORES, on_change=reset_form)
     
     tab_pre, tab_post = st.tabs(["🔹 DATOS PRE-ENTRENO", "🔸 DATOS POST-ENTRENO"])
     
-    # Usamos f_key para que los widgets se reinicien al guardar o cambiar jugador
     f_key = st.session_state.form_key
 
     with tab_pre:
@@ -198,8 +197,9 @@ elif st.session_state.seccion == 'Jugadores':
                 if nombre_j not in db: db[nombre_j] = []
                 db[nombre_j].append({"fecha": fecha, "momento": "PRE", "datos": {"descanso": d, "estres": e, "fatiga": f}})
                 guardar_datos(db)
-                st.session_state.form_key += 1 # Resetear barras tras guardar
-                st.rerun()
+                st.success(f"✅ Datos guardados para {nombre_j}")
+                # Incrementamos la clave para resetear las barras a 0 en la próxima carga
+                st.session_state.form_key += 1
 
     with tab_post:
         with st.form(key=f"post_form_{f_key}"):
@@ -211,8 +211,8 @@ elif st.session_state.seccion == 'Jugadores':
                 if nombre_j not in db: db[nombre_j] = []
                 db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
                 guardar_datos(db)
-                st.session_state.form_key += 1 # Resetear barras tras guardar
-                st.rerun()
+                st.success(f"✅ Datos guardados para {nombre_j}")
+                st.session_state.form_key += 1
 
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
@@ -225,7 +225,7 @@ elif st.session_state.seccion == 'Staff':
             f_ver = st.selectbox("Sesión a consultar:", fechas)
             
             try:
-                # Arreglo crítico para la descarga del PDF
+                # CORRECCIÓN CRÍTICA: La función ahora devuelve bytes puros
                 pdf_bytes = generar_pdf_oficial(f_ver, db_s)
                 st.download_button(
                     label="📄 DESCARGAR INFORME PDF",
@@ -248,4 +248,3 @@ elif st.session_state.seccion == 'Staff':
                         if post: c2.metric("Fatiga POST", post['datos']['fatiga_actual'])
         else:
             st.info("Sin datos registrados.")
-
