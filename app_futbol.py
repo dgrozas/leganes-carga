@@ -114,7 +114,6 @@ def generar_pdf_oficial(fecha_sel, db):
         nombres_graf.append(jug.split()[0])
         fatigas_graf.append(f_val)
 
-        y_antes = pdf.get_y()
         pdf.cell(50, 12, jug, 1)
         
         # Datos PRE
@@ -138,17 +137,16 @@ def generar_pdf_oficial(fecha_sel, db):
     pdf.image(tmp_img, x=45, w=120)
     if os.path.exists(tmp_img): os.remove(tmp_img)
 
-    # RETORNO DE BYTES DIRECTO (Sin encode)
     return pdf.output()
 
 # --- 4. LÓGICA DE NAVEGACIÓN ---
 if 'seccion' not in st.session_state:
     st.session_state.seccion = 'Inicio'
 
-# Función para resetear formulario al cambiar de jugador
+if 'form_key' not in st.session_state:
+    st.session_state.form_key = 0
+
 def reset_form():
-    if "form_key" not in st.session_state:
-        st.session_state.form_key = 0
     st.session_state.form_key += 1
 
 with st.sidebar:
@@ -181,57 +179,62 @@ if st.session_state.seccion == 'Inicio':
 elif st.session_state.seccion == 'Jugadores':
     st.header("📋 Registro de Sesión")
     
-    # Al cambiar de jugador, reseteamos el formulario
+    # Al cambiar de jugador, forzamos reseteo del form_key
     nombre_j = st.selectbox("Selecciona tu nombre:", JUGADORES, on_change=reset_form)
     
-    # Tabs grandes para PRE y POST
     tab_pre, tab_post = st.tabs(["🔹 DATOS PRE-ENTRENO", "🔸 DATOS POST-ENTRENO"])
     
+    # Usamos f_key para que los widgets se reinicien al guardar o cambiar jugador
+    f_key = st.session_state.form_key
+
     with tab_pre:
-        with st.form(key=f"pre_{st.session_state.get('form_key', 0)}"):
+        with st.form(key=f"pre_form_{f_key}"):
             st.info("Rellenar antes de empezar la sesión")
-            d = st.select_slider("Calidad del Descanso (0-10)", options=range(11), value=7)
-            e = st.select_slider("Nivel de Estrés (0-10)", options=range(11), value=2)
-            f = st.select_slider("Fatiga Muscular (0-10)", options=range(11), value=0)
+            d = st.select_slider("Calidad del Descanso (0-10)", options=range(11), value=0, key=f"d_{f_key}")
+            e = st.select_slider("Nivel de Estrés (0-10)", options=range(11), value=0, key=f"e_{f_key}")
+            f = st.select_slider("Fatiga Muscular (0-10)", options=range(11), value=0, key=f"f_{f_key}")
             if st.form_submit_button("GUARDAR PRE-ENTRENO"):
                 db = cargar_datos(); fecha = obtener_fecha_hoy()
                 if nombre_j not in db: db[nombre_j] = []
                 db[nombre_j].append({"fecha": fecha, "momento": "PRE", "datos": {"descanso": d, "estres": e, "fatiga": f}})
                 guardar_datos(db)
-                st.success("✅ Datos Pre-Entreno guardados.")
+                st.session_state.form_key += 1 # Resetear barras tras guardar
+                st.rerun()
 
     with tab_post:
-        with st.form(key=f"post_{st.session_state.get('form_key', 0)}"):
+        with st.form(key=f"post_form_{f_key}"):
             st.warning("Rellenar al finalizar la sesión")
-            i = st.select_slider("Intensidad percibida (RPE)", options=range(11), value=5)
-            fa = st.select_slider("Fatiga post-esfuerzo", options=range(11), value=0)
+            i = st.select_slider("Intensidad percibida (RPE)", options=range(11), value=0, key=f"i_{f_key}")
+            fa = st.select_slider("Fatiga post-esfuerzo", options=range(11), value=0, key=f"fa_{f_key}")
             if st.form_submit_button("GUARDAR POST-ENTRENO"):
                 db = cargar_datos(); fecha = obtener_fecha_hoy()
                 if nombre_j not in db: db[nombre_j] = []
                 db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
                 guardar_datos(db)
-                st.success("✅ Datos Post-Entreno guardados.")
+                st.session_state.form_key += 1 # Resetear barras tras guardar
+                st.rerun()
 
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
-    if st.text_input("Contraseña", type="password") == "123456":
+    pass_staff = st.text_input("Contraseña", type="password")
+    if pass_staff == "123456":
         db_s = cargar_datos()
         fechas = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
         
         if fechas:
             f_ver = st.selectbox("Sesión a consultar:", fechas)
             
-            # Botón de PDF corregido
             try:
-                data_pdf = generar_pdf_oficial(f_ver, db_s)
+                # Arreglo crítico para la descarga del PDF
+                pdf_bytes = generar_pdf_oficial(f_ver, db_s)
                 st.download_button(
                     label="📄 DESCARGAR INFORME PDF",
-                    data=data_pdf,
+                    data=pdf_bytes,
                     file_name=f"Informe_{f_ver.replace(' ','_')}.pdf",
                     mime="application/pdf"
                 )
             except Exception as e:
-                st.error(f"Error PDF: {e}")
+                st.error(f"Error al generar el PDF: {e}")
 
             st.divider()
             for j in JUGADORES:
@@ -245,3 +248,4 @@ elif st.session_state.seccion == 'Staff':
                         if post: c2.metric("Fatiga POST", post['datos']['fatiga_actual'])
         else:
             st.info("Sin datos registrados.")
+
