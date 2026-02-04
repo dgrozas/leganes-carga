@@ -5,28 +5,37 @@ from datetime import datetime
 from fpdf import FPDF
 import matplotlib.pyplot as plt
 
-# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILO MÓVIL ---
-st.set_page_config(page_title="Leganés C - Gestión", layout="centered", page_icon="🛡️")
+# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILO ---
+st.set_page_config(page_title="Leganés C - Gestión de Carga", layout="centered", page_icon="🛡️")
 
+# CSS Profesional: Estética Blanquiazul y Mejoras de Visibilidad
 st.markdown("""
     <style>
-    /* Optimización para pantallas táctiles */
-    .stSlider { padding-bottom: 20px; }
-    .stButton>button { 
-        width: 100%; border-radius: 15px; height: 3.5em; font-weight: bold; 
-        background-color: #004595; color: white; border: none; font-size: 18px !important;
-    }
-    /* Pestañas (Tabs) Gigantes */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px; background-color: #f1f5f9; border-radius: 10px;
-        flex-grow: 1; text-align: center; font-weight: bold;
-    }
-    .stTabs [aria-selected="true"] { background-color: #004595 !important; color: white !important; }
+    .main { background-color: #f8fafc; }
+    h1, h2, h3 { color: #004595; font-family: 'Arial', sans-serif; font-weight: bold; }
     
-    /* Ajuste de fuentes para móvil */
-    h1 { font-size: 24px !important; text-align: center; color: #004595; }
-    h2 { font-size: 20px !important; }
+    /* Botones Principales Táctiles */
+    .stButton>button { 
+        width: 100%; border-radius: 12px; height: 3.5em; font-weight: bold; 
+        background-color: #004595; color: white; border: none;
+        font-size: 16px !important; margin-top: 10px;
+        transition: all 0.3s;
+    }
+    .stButton>button:hover { background-color: #003370; transform: translateY(-2px); }
+    
+    /* Estilo para los TABS (PRE/POST) más visibles */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #e2e8f0; border-radius: 10px 10px 0px 0px;
+        padding: 10px 20px; font-weight: bold; color: #475569;
+        flex-grow: 1; text-align: center;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #004595 !important; color: white !important; 
+    }
+    
+    .portada-container { text-align: center; padding: 10px; }
+    .footer-text { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 40px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -34,6 +43,9 @@ st.markdown("""
 DB_FILE = "seguimiento_futbol.json"
 JUGADORES = ["David Gonzalez Rozas", "Jaime Catalina Contreras", "Marco Lopez Dato", "Igor Sava"]
 LOGO_PATH = "escudo_leganes.png"
+
+def verificar_logo():
+    return os.path.exists(LOGO_PATH)
 
 def cargar_datos():
     if os.path.exists(DB_FILE):
@@ -48,103 +60,188 @@ def guardar_datos(datos):
 
 def obtener_fecha_hoy():
     ahora = datetime.now()
-    meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     dias = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     return f"{dias[ahora.weekday()]} {ahora.day} de {meses[ahora.month-1]}"
 
-# --- 3. GENERADOR DE PDF (CORREGIDO SIN ENCODE) ---
+# --- 3. GENERADOR DE PDF ---
 def generar_pdf_oficial(fecha_sel, db):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("helvetica", "B", 16)
-    pdf.set_text_color(0, 69, 149)
-    pdf.cell(0, 10, f"INFORME LEGANÉS C - {fecha_sel}", ln=True, align="C")
-    pdf.ln(10)
     
-    # Tabla simple para el informe
-    pdf.set_font("helvetica", "B", 10)
-    pdf.set_fill_color(240, 240, 240)
-    pdf.cell(50, 10, "Jugador", 1, 0, "C", True)
-    pdf.cell(70, 10, "Pre-Entreno", 1, 0, "C", True)
-    pdf.cell(70, 10, "Post-Entreno", 1, 1, "C", True)
-    
-    pdf.set_font("helvetica", "", 9)
-    for jug in JUGADORES:
-        regs = [r for r in db.get(jug, []) if r["fecha"] == fecha_sel]
-        pre = next((r for r in regs if r["momento"] == "PRE"), None)
-        post = next((r for r in regs if r["momento"] == "POST"), None)
+    # Encabezado
+    if verificar_logo():
+        pdf.image(LOGO_PATH, 10, 10, 25)
+        pdf.set_xy(40, 15)
+    else:
+        pdf.set_xy(10, 15)
         
-        pdf.cell(50, 10, jug[:20], 1)
-        txt_pre = f"D:{pre['datos']['descanso']} E:{pre['datos']['estres']} F:{pre['datos']['fatiga']}" if pre else "---"
-        pdf.cell(70, 10, txt_pre, 1)
-        txt_post = f"I:{post['datos']['intensidad']} F:{post['datos']['fatiga_actual']}" if post else "---"
-        pdf.cell(70, 10, txt_post, 1, 1)
+    pdf.set_text_color(0, 69, 149)
+    pdf.set_font("helvetica", "B", 20)
+    pdf.cell(150, 10, "C.D. LEGANES C", ln=True)
+    
+    pdf.set_font("helvetica", "B", 12)
+    pdf.set_x(40 if verificar_logo() else 10)
+    pdf.cell(150, 7, "CONTROL DE CARGA INTERNA", ln=True)
+    
+    pdf.set_draw_color(0, 69, 149)
+    pdf.line(10, 40, 200, 40)
+    pdf.ln(15)
 
-    return pdf.output() # fpdf2 entrega bytes directamente
+    # Tabla
+    pdf.set_fill_color(0, 69, 149)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(50, 10, " JUGADOR", 1, 0, "L", True)
+    pdf.cell(70, 10, " PRE-ENTRENO", 1, 0, "C", True)
+    pdf.cell(70, 10, " POST-ENTRENO", 1, 1, "C", True)
 
-# --- 4. LÓGICA DE RESETEO ---
-# Si el jugador cambia, incrementamos una versión en el state para resetear widgets
-if 'nombre_anterior' not in st.session_state:
-    st.session_state.nombre_anterior = JUGADORES[0]
-if 'form_version' not in st.session_state:
-    st.session_state.form_version = 0
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("helvetica", "", 9)
 
-def detectar_cambio_jugador():
-    if st.session_state.sel_jugador != st.session_state.nombre_anterior:
-        st.session_state.nombre_anterior = st.session_state.sel_jugador
-        st.session_state.form_version += 1
+    nombres_graf = []
+    fatigas_graf = []
 
-# --- 5. INTERFAZ ---
+    for jug in JUGADORES:
+        eventos = [r for r in db.get(jug, []) if r["fecha"] == fecha_sel]
+        pre = next((r for r in eventos if r["momento"] == "PRE"), None)
+        post = next((r for r in eventos if r["momento"] == "POST"), None)
+        
+        f_val = 0
+        if post: f_val = post['datos']['fatiga_actual']
+        elif pre: f_val = pre['datos']['fatiga']
+        
+        nombres_graf.append(jug.split()[0])
+        fatigas_graf.append(f_val)
+
+        y_antes = pdf.get_y()
+        pdf.cell(50, 12, jug, 1)
+        
+        # Datos PRE
+        txt_pre = f"Desc: {pre['datos']['descanso']} | Est: {pre['datos']['estres']}" if pre else "Sin datos"
+        pdf.cell(70, 12, txt_pre, 1, 0, "C")
+        
+        # Datos POST
+        txt_post = f"Int: {post['datos']['intensidad']} | Fat: {post['datos']['fatiga_actual']}" if post else "Sin datos"
+        pdf.cell(70, 12, txt_post, 1, 1, "C")
+
+    # Gráfico
+    plt.figure(figsize=(6, 3))
+    plt.bar(nombres_graf, fatigas_graf, color='#004595')
+    plt.ylim(0, 10)
+    plt.title("Nivel de Fatiga Actual")
+    tmp_img = "chart.png"
+    plt.savefig(tmp_img, bbox_inches='tight')
+    plt.close()
+    
+    pdf.ln(10)
+    pdf.image(tmp_img, x=45, w=120)
+    if os.path.exists(tmp_img): os.remove(tmp_img)
+
+    # RETORNO DE BYTES DIRECTO (Sin encode)
+    return pdf.output()
+
+# --- 4. LÓGICA DE NAVEGACIÓN ---
 if 'seccion' not in st.session_state:
-    st.session_state.seccion = 'Jugadores'
+    st.session_state.seccion = 'Inicio'
+
+# Función para resetear formulario al cambiar de jugador
+def reset_form():
+    if "form_key" not in st.session_state:
+        st.session_state.form_key = 0
+    st.session_state.form_key += 1
 
 with st.sidebar:
-    st.title("🛡️ Menú")
+    if verificar_logo(): st.image(LOGO_PATH, width=120)
+    st.title("GESTIÓN")
+    if st.button("🏠 INICIO"): st.session_state.seccion = 'Inicio'
     if st.button("📝 ENCUESTA"): st.session_state.seccion = 'Jugadores'
     if st.button("🛡️ STAFF"): st.session_state.seccion = 'Staff'
 
-if st.session_state.seccion == 'Jugadores':
+# --- 5. PÁGINAS ---
+
+if st.session_state.seccion == 'Inicio':
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if verificar_logo(): st.image(LOGO_PATH, use_container_width=True)
+    
+    st.markdown("""
+        <div class="portada-container">
+            <h1>C.D. LEGANÉS C</h1>
+            <h3 style='color: #64748b;'>Control de Rendimiento</h3>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("SOY JUGADOR"): st.session_state.seccion = 'Jugadores'
+    with c2:
+        if st.button("SOY STAFF"): st.session_state.seccion = 'Staff'
+
+elif st.session_state.seccion == 'Jugadores':
     st.header("📋 Registro de Sesión")
     
-    # Selector de jugador con callback de reseteo
-    nombre_j = st.selectbox("Selecciona tu nombre:", JUGADORES, key="sel_jugador", on_change=detectar_cambio_jugador)
+    # Al cambiar de jugador, reseteamos el formulario
+    nombre_j = st.selectbox("Selecciona tu nombre:", JUGADORES, on_change=reset_form)
     
-    tab_pre, tab_post = st.tabs(["🔹 PRE", "🔸 POST"])
+    # Tabs grandes para PRE y POST
+    tab_pre, tab_post = st.tabs(["🔹 DATOS PRE-ENTRENO", "🔸 DATOS POST-ENTRENO"])
     
-    # El uso de 'key' dinámico basado en form_version fuerza a Streamlit a olvidar valores viejos
-    ver = st.session_state.form_version
-
     with tab_pre:
-        with st.form(key=f"form_pre_{ver}"):
-            st.write("### Datos de Bienvenida")
-            d = st.select_slider("Calidad Descanso", options=range(11), value=0, key=f"d_{ver}")
-            e = st.select_slider("Nivel Estrés", options=range(11), value=0, key=f"e_{ver}")
-            f = st.select_slider("Fatiga Muscular", options=range(11), value=0, key=f"f_{ver}")
-            if st.form_submit_button("GUARDAR PRE"):
-                db = cargar_datos()
+        with st.form(key=f"pre_{st.session_state.get('form_key', 0)}"):
+            st.info("Rellenar antes de empezar la sesión")
+            d = st.select_slider("Calidad del Descanso (0-10)", options=range(11), value=7)
+            e = st.select_slider("Nivel de Estrés (0-10)", options=range(11), value=2)
+            f = st.select_slider("Fatiga Muscular (0-10)", options=range(11), value=0)
+            if st.form_submit_button("GUARDAR PRE-ENTRENO"):
+                db = cargar_datos(); fecha = obtener_fecha_hoy()
                 if nombre_j not in db: db[nombre_j] = []
-                db[nombre_j].append({"fecha": obtener_fecha_hoy(), "momento": "PRE", "datos": {"descanso": d, "estres": e, "fatiga": f}})
+                db[nombre_j].append({"fecha": fecha, "momento": "PRE", "datos": {"descanso": d, "estres": e, "fatiga": f}})
                 guardar_datos(db)
-                st.success("¡Datos Pre guardados!")
+                st.success("✅ Datos Pre-Entreno guardados.")
 
     with tab_post:
-        with st.form(key=f"form_post_{ver}"):
-            st.write("### Carga de Sesión")
-            i = st.select_slider("Intensidad (RPE)", options=range(11), value=0, key=f"i_{ver}")
-            fa = st.select_slider("Fatiga Post", options=range(11), value=0, key=f"fa_{ver}")
-            if st.form_submit_button("GUARDAR POST"):
-                db = cargar_datos()
+        with st.form(key=f"post_{st.session_state.get('form_key', 0)}"):
+            st.warning("Rellenar al finalizar la sesión")
+            i = st.select_slider("Intensidad percibida (RPE)", options=range(11), value=5)
+            fa = st.select_slider("Fatiga post-esfuerzo", options=range(11), value=0)
+            if st.form_submit_button("GUARDAR POST-ENTRENO"):
+                db = cargar_datos(); fecha = obtener_fecha_hoy()
                 if nombre_j not in db: db[nombre_j] = []
-                db[nombre_j].append({"fecha": obtener_fecha_hoy(), "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
+                db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
                 guardar_datos(db)
-                st.success("¡Datos Post guardados!")
+                st.success("✅ Datos Post-Entreno guardados.")
 
 elif st.session_state.seccion == 'Staff':
-    st.header("🛡️ Cuerpo Técnico")
+    st.header("🛡️ Acceso Staff")
     if st.text_input("Contraseña", type="password") == "123456":
-        db = cargar_datos()
-        fechas = sorted(list(set(r["fecha"] for h in db.values() for r in h)), reverse=True)
+        db_s = cargar_datos()
+        fechas = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
+        
         if fechas:
-            f_sel = st.selectbox("Fecha:", fechas)
-            if st.download_button("📄 DESCARGAR PDF", data=generar_pdf_oficial(f_sel, db), file_name=f"Informe_{f_sel}.pdf"):
-                st.balloons()
+            f_ver = st.selectbox("Sesión a consultar:", fechas)
+            
+            # Botón de PDF corregido
+            try:
+                data_pdf = generar_pdf_oficial(f_ver, db_s)
+                st.download_button(
+                    label="📄 DESCARGAR INFORME PDF",
+                    data=data_pdf,
+                    file_name=f"Informe_{f_ver.replace(' ','_')}.pdf",
+                    mime="application/pdf"
+                )
+            except Exception as e:
+                st.error(f"Error PDF: {e}")
+
+            st.divider()
+            for j in JUGADORES:
+                regs = [r for r in db_s.get(j, []) if r["fecha"] == f_ver]
+                if regs:
+                    with st.expander(f"👤 {j}"):
+                        pre = next((r for r in regs if r["momento"] == "PRE"), None)
+                        post = next((r for r in regs if r["momento"] == "POST"), None)
+                        c1, c2 = st.columns(2)
+                        if pre: c1.metric("Fatiga PRE", pre['datos']['fatiga'])
+                        if post: c2.metric("Fatiga POST", post['datos']['fatiga_actual'])
+        else:
+            st.info("Sin datos registrados.")
