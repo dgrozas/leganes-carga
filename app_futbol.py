@@ -72,7 +72,6 @@ def generar_pdf_oficial(fecha_sel, db):
     pdf.line(10, 40, 200, 40)
     pdf.ln(15)
 
-    # Tabla con nombres completos
     pdf.set_fill_color(0, 69, 149); pdf.set_text_color(255, 255, 255); pdf.set_font("helvetica", "B", 9)
     pdf.cell(45, 10, " JUGADOR", 1, 0, "L", True)
     pdf.cell(75, 10, " DATOS PRE-ENTRENO", 1, 0, "C", True)
@@ -93,6 +92,7 @@ def generar_pdf_oficial(fecha_sel, db):
 
         pdf.cell(45, 12, jug, 1)
         
+        # Palabras completas en el PDF
         txt_pre = f"Descanso: {pre['datos']['descanso']} | Estres: {pre['datos']['estres']} | Fatiga: {pre['datos']['fatiga']}" if pre else "Sin datos"
         pdf.cell(75, 12, txt_pre, 1, 0, "C")
         
@@ -149,14 +149,25 @@ elif st.session_state.seccion == 'Jugadores':
                 guardar_datos(db); st.success("✅ Guardado correctamente"); st.session_state.form_key += 1
 
     with tab_post:
-        with st.form(key=f"post_{f_key}"):
-            i = st.select_slider("Intensidad (RPE)", options=range(11), value=0, key=f"i_{f_key}")
-            fa = st.select_slider("Fatiga Post-Esfuerzo", options=range(11), value=0, key=f"fa_{f_key}")
-            if st.form_submit_button("GUARDAR POST"):
-                db = cargar_datos(); fecha = obtener_fecha_hoy()
-                if nombre_j not in db: db[nombre_j] = []
-                db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
-                guardar_datos(db); st.success("✅ Guardado correctamente"); st.session_state.form_key += 1
+        # Lógica para mostrar éxito y botón de salir
+        if f'success_{f_key}' in st.session_state:
+            st.balloons()
+            st.success("✅ ¡Encuesta finalizada con éxito!")
+            if st.button("🚪 FINALIZAR Y SALIR"):
+                st.session_state.seccion = 'Inicio'
+                del st.session_state[f'success_{f_key}']
+                st.rerun()
+        else:
+            with st.form(key=f"post_{f_key}"):
+                i = st.select_slider("Intensidad (RPE)", options=range(11), value=0, key=f"i_{f_key}")
+                fa = st.select_slider("Fatiga Post-Esfuerzo", options=range(11), value=0, key=f"fa_{f_key}")
+                if st.form_submit_button("GUARDAR POST"):
+                    db = cargar_datos(); fecha = obtener_fecha_hoy()
+                    if nombre_j not in db: db[nombre_j] = []
+                    db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
+                    guardar_datos(db)
+                    st.session_state[f'success_{f_key}'] = True
+                    st.rerun()
 
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
@@ -179,6 +190,7 @@ elif st.session_state.seccion == 'Staff':
                         pre = next((r for r in regs if r["momento"] == "PRE"), None)
                         post = next((r for r in regs if r["momento"] == "POST"), None)
                         c1, c2 = st.columns(2)
+                        # Todos los campos visibles para el Staff
                         if pre: c1.info(f"**PRE-ENTRENO**\n\nDescanso: {pre['datos']['descanso']}\n\nEstrés: {pre['datos']['estres']}\n\nFatiga: {pre['datos']['fatiga']}")
                         if post: c2.success(f"**POST-ENTRENO**\n\nIntensidad: {post['datos']['intensidad']}\n\nFatiga: {post['datos']['fatiga_actual']}")
             
@@ -188,3 +200,4 @@ elif st.session_state.seccion == 'Staff':
                     guardar_datos({}); st.rerun()
         else:
             st.info("No hay datos históricos aún.")
+
