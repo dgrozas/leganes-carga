@@ -93,10 +93,8 @@ def generar_pdf_oficial(fecha_sel, db):
         nombres_graf.append(jug.split()[0]); fatigas_graf.append(f_val)
 
         pdf.cell(45, 12, jug, 1)
-        
         txt_pre = f"Descanso: {pre['datos']['descanso']} | Estres: {pre['datos']['estres']} | Fatiga: {pre['datos']['fatiga']}" if pre else "Sin datos"
         pdf.cell(75, 12, txt_pre, 1, 0, "C")
-        
         txt_post = f"Intensidad: {post['datos']['intensidad']} | Fatiga: {post['datos']['fatiga_actual']}" if post else "Sin datos"
         pdf.cell(70, 12, txt_post, 1, 1, "C")
 
@@ -150,12 +148,12 @@ elif st.session_state.seccion == 'Jugadores':
                 guardar_datos(db); st.success("✅ Guardado correctamente"); st.session_state.form_key += 1
 
     with tab_post:
-        if f'success_{f_key}' in st.session_state:
+        if f'post_guardado_{f_key}' in st.session_state:
             st.balloons()
             st.success("✅ ¡Encuesta finalizada con éxito!")
             if st.button("🚪 FINALIZAR Y SALIR"):
                 st.session_state.seccion = 'Inicio'
-                del st.session_state[f'success_{f_key}']
+                del st.session_state[f'post_guardado_{f_key}']
                 st.rerun()
         else:
             with st.form(key=f"post_{f_key}"):
@@ -166,28 +164,23 @@ elif st.session_state.seccion == 'Jugadores':
                     if nombre_j not in db: db[nombre_j] = []
                     db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
                     guardar_datos(db)
-                    st.session_state[f'success_{f_key}'] = True
+                    st.session_state[f'post_guardado_{f_key}'] = True
                     st.rerun()
 
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
     if st.text_input("Contraseña", type="password") == "123456":
         db_s = cargar_datos()
-        # Obtener todas las fechas únicas guardadas en el historial
         fechas = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
         
         if fechas:
-            f_ver = st.selectbox("Seleccionar Sesión para Informe/Consulta:", fechas)
-            
-            col_pdf, col_del = st.columns([2, 1])
-            with col_pdf:
-                try:
-                    data_pdf = generar_pdf_oficial(f_ver, db_s)
-                    st.download_button("📄 DESCARGAR PDF " + f_ver, data=data_pdf, file_name=f"Informe_{f_ver.replace(' ', '_')}.pdf", mime="application/pdf")
-                except Exception as e: st.error(f"Error PDF: {e}")
-            
+            f_ver = st.selectbox("Seleccionar Sesión:", fechas)
+            try:
+                data_pdf = generar_pdf_oficial(f_ver, db_s)
+                st.download_button("📄 DESCARGAR PDF " + f_ver, data=data_pdf, file_name=f"Informe_{f_ver.replace(' ', '_')}.pdf", mime="application/pdf")
+            except Exception as e: st.error(f"Error PDF: {e}")
+
             st.divider()
-            st.subheader(f"Resumen del día: {f_ver}")
             for j in JUGADORES:
                 regs = [r for r in db_s.get(j, []) if r["fecha"] == f_ver]
                 if regs:
@@ -198,16 +191,14 @@ elif st.session_state.seccion == 'Staff':
                         if pre: c1.info(f"**PRE**\n\nDescanso: {pre['datos']['descanso']}\n\nEstrés: {pre['datos']['estres']}\n\nFatiga: {pre['datos']['fatiga']}")
                         if post: c2.success(f"**POST**\n\nIntensidad: {post['datos']['intensidad']}\n\nFatiga: {post['datos']['fatiga_actual']}")
             
-            # Sección de borrado movida aquí para que solo aparezca si hay datos
             st.sidebar.divider()
-            st.sidebar.warning("ZONA DE LIMPIEZA")
-            confirmar = st.sidebar.checkbox("Activar botón de borrado")
-            if confirmar:
-                if st.sidebar.button("🗑️ VACIAR TODA LA BASE DE DATOS"):
+            confirmar_borrado = st.sidebar.checkbox("Activar botón de borrado total")
+            if confirmar_borrado:
+                if st.sidebar.button("🗑️ VACIAR BASE DE DATOS"):
                     guardar_datos({})
-                    st.success("Base de datos vaciada.")
+                    st.success("Historial borrado.")
                     st.rerun()
         else:
-            st.info("No hay datos históricos guardados en el archivo .json")
+            st.info("No hay datos históricos aún.")
 
 
