@@ -59,13 +59,11 @@ def obtener_fecha_hoy():
 def generar_pdf_oficial(fecha_sel, db):
     pdf = FPDF()
     pdf.add_page()
-    
     if verificar_logo():
         pdf.image(LOGO_PATH, 10, 10, 25)
         pdf.set_xy(40, 15)
     else:
         pdf.set_xy(10, 15)
-        
     pdf.set_text_color(0, 69, 149)
     pdf.set_font("helvetica", "B", 20)
     pdf.cell(150, 10, "C.D. LEGANES C", ln=True)
@@ -73,38 +71,18 @@ def generar_pdf_oficial(fecha_sel, db):
     pdf.cell(150, 7, f"INFORME CARGA INTERNA - {fecha_sel}", ln=True)
     pdf.line(10, 40, 200, 40)
     pdf.ln(15)
-
     pdf.set_fill_color(0, 69, 149); pdf.set_text_color(255, 255, 255); pdf.set_font("helvetica", "B", 9)
-    pdf.cell(45, 10, " JUGADOR", 1, 0, "L", True)
-    pdf.cell(75, 10, " DATOS PRE-ENTRENO", 1, 0, "C", True)
-    pdf.cell(70, 10, " DATOS POST-ENTRENO", 1, 1, "C", True)
-
+    pdf.cell(45, 10, " JUGADOR", 1, 0, "L", True); pdf.cell(75, 10, " DATOS PRE-ENTRENO", 1, 0, "C", True); pdf.cell(70, 10, " DATOS POST-ENTRENO", 1, 1, "C", True)
     pdf.set_text_color(0, 0, 0); pdf.set_font("helvetica", "", 8)
-
-    nombres_graf = []
-    fatigas_graf = []
-
     for jug in JUGADORES:
         eventos = [r for r in db.get(jug, []) if r["fecha"] == fecha_sel]
         pre = next((r for r in eventos if r["momento"] == "PRE"), None)
         post = next((r for r in eventos if r["momento"] == "POST"), None)
-        
-        f_val = post['datos']['fatiga_actual'] if post else (pre['datos']['fatiga'] if pre else 0)
-        nombres_graf.append(jug.split()[0]); fatigas_graf.append(f_val)
-
         pdf.cell(45, 12, jug, 1)
         txt_pre = f"Descanso: {pre['datos']['descanso']} | Estres: {pre['datos']['estres']} | Fatiga: {pre['datos']['fatiga']}" if pre else "Sin datos"
         pdf.cell(75, 12, txt_pre, 1, 0, "C")
         txt_post = f"Intensidad: {post['datos']['intensidad']} | Fatiga: {post['datos']['fatiga_actual']}" if post else "Sin datos"
         pdf.cell(70, 12, txt_post, 1, 1, "C")
-
-    plt.figure(figsize=(6, 3))
-    plt.bar(nombres_graf, fatigas_graf, color='#004595')
-    plt.ylim(0, 10); plt.title("Nivel de Fatiga Actual"); tmp_img = "chart.png"
-    plt.savefig(tmp_img, bbox_inches='tight'); plt.close()
-    pdf.ln(10); pdf.image(tmp_img, x=45, w=120)
-    if os.path.exists(tmp_img): os.remove(tmp_img)
-
     return bytes(pdf.output())
 
 # --- 4. LÓGICA DE NAVEGACIÓN ---
@@ -123,9 +101,6 @@ with st.sidebar:
 
 # --- 5. PÁGINAS ---
 if st.session_state.seccion == 'Inicio':
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if verificar_logo(): st.image(LOGO_PATH, use_container_width=True)
     st.markdown('<div class="portada-container"><h1>C.D. LEGANÉS C</h1><h3>Gestión de Plantilla</h3></div>', unsafe_allow_html=True)
     if st.button("ACCESO JUGADORES"): st.session_state.seccion = 'Jugadores'
     if st.button("ACCESO STAFF"): st.session_state.seccion = 'Staff'
@@ -137,48 +112,52 @@ elif st.session_state.seccion == 'Jugadores':
     f_key = st.session_state.form_key
 
     with tab_pre:
-        with st.form(key=f"pre_{f_key}"):
-            d = st.select_slider("Calidad del Descanso", options=range(11), value=0, key=f"d_{f_key}")
-            e = st.select_slider("Nivel de Estrés", options=range(11), value=0, key=f"e_{f_key}")
-            f = st.select_slider("Fatiga Muscular Previa", options=range(11), value=0, key=f"f_{f_key}")
+        with st.form(key=f"pre_form_{f_key}"):
+            d = st.select_slider("Descanso", options=range(11), value=0)
+            e = st.select_slider("Estrés", options=range(11), value=0)
+            f = st.select_slider("Fatiga PRE", options=range(11), value=0)
             if st.form_submit_button("GUARDAR PRE"):
                 db = cargar_datos(); fecha = obtener_fecha_hoy()
                 if nombre_j not in db: db[nombre_j] = []
                 db[nombre_j].append({"fecha": fecha, "momento": "PRE", "datos": {"descanso": d, "estres": e, "fatiga": f}})
-                guardar_datos(db); st.success("✅ Guardado correctamente"); st.session_state.form_key += 1
+                guardar_datos(db)
+                st.success(f"✅ Guardado para {nombre_j}")
+                st.session_state.form_key += 1
+                st.rerun()
 
     with tab_post:
-        if f'post_guardado_{f_key}' in st.session_state:
+        if f'post_ok_{f_key}' in st.session_state:
             st.balloons()
-            st.success("✅ ¡Encuesta finalizada con éxito!")
+            st.success("✅ ¡Encuesta finalizada!")
             if st.button("🚪 FINALIZAR Y SALIR"):
                 st.session_state.seccion = 'Inicio'
-                del st.session_state[f'post_guardado_{f_key}']
+                del st.session_state[f'post_ok_{f_key}']
                 st.rerun()
         else:
-            with st.form(key=f"post_{f_key}"):
-                i = st.select_slider("Intensidad (RPE)", options=range(11), value=0, key=f"i_{f_key}")
-                fa = st.select_slider("Fatiga Post-Esfuerzo", options=range(11), value=0, key=f"fa_{f_key}")
+            with st.form(key=f"post_form_{f_key}"):
+                i = st.select_slider("Intensidad (RPE)", options=range(11), value=0)
+                fa = st.select_slider("Fatiga POST", options=range(11), value=0)
                 if st.form_submit_button("GUARDAR POST"):
                     db = cargar_datos(); fecha = obtener_fecha_hoy()
                     if nombre_j not in db: db[nombre_j] = []
                     db[nombre_j].append({"fecha": fecha, "momento": "POST", "datos": {"intensidad": i, "fatiga_actual": fa}})
                     guardar_datos(db)
-                    st.session_state[f'post_guardado_{f_key}'] = True
+                    st.session_state[f'post_ok_{f_key}'] = True
                     st.rerun()
 
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
     if st.text_input("Contraseña", type="password") == "123456":
         db_s = cargar_datos()
-        fechas = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
+        # ACUMULACIÓN DE FECHAS: Extrae todas las fechas únicas del JSON
+        fechas_disponibles = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
         
-        if fechas:
-            f_ver = st.selectbox("Seleccionar Sesión:", fechas)
+        if fechas_disponibles:
+            f_ver = st.selectbox("Seleccionar Sesión Histórica:", fechas_disponibles)
             try:
-                data_pdf = generar_pdf_oficial(f_ver, db_s)
-                st.download_button("📄 DESCARGAR PDF " + f_ver, data=data_pdf, file_name=f"Informe_{f_ver.replace(' ', '_')}.pdf", mime="application/pdf")
-            except Exception as e: st.error(f"Error PDF: {e}")
+                pdf_data = generar_pdf_oficial(f_ver, db_s)
+                st.download_button(f"📄 DESCARGAR PDF {f_ver}", data=pdf_data, file_name=f"Informe_{f_ver}.pdf", mime="application/pdf")
+            except Exception as ex: st.error(f"Error PDF: {ex}")
 
             st.divider()
             for j in JUGADORES:
@@ -192,13 +171,8 @@ elif st.session_state.seccion == 'Staff':
                         if post: c2.success(f"**POST**\n\nIntensidad: {post['datos']['intensidad']}\n\nFatiga: {post['datos']['fatiga_actual']}")
             
             st.sidebar.divider()
-            confirmar_borrado = st.sidebar.checkbox("Activar botón de borrado total")
-            if confirmar_borrado:
-                if st.sidebar.button("🗑️ VACIAR BASE DE DATOS"):
-                    guardar_datos({})
-                    st.success("Historial borrado.")
-                    st.rerun()
+            if st.sidebar.checkbox("🔓 Habilitar Borrado"):
+                if st.sidebar.button("🗑️ VACIAR TODO EL HISTORIAL"):
+                    guardar_datos({}); st.rerun()
         else:
-            st.info("No hay datos históricos aún.")
-
-
+            st.info("No hay datos registrados en el historial.")
