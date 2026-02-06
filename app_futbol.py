@@ -37,17 +37,24 @@ def verificar_logo():
     return os.path.exists(LOGO_PATH)
 
 def cargar_datos():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r", encoding="utf-8") as f: 
-                data = json.load(f)
-                return data if isinstance(data, dict) else {}
-        except: return {}
-    return {}
+    # Aseguramos que el archivo existe antes de leer
+    if not os.path.exists(DB_FILE):
+        return {}
+    try:
+        with open(DB_FILE, "r", encoding="utf-8") as f: 
+            data = json.load(f)
+            # Validamos que el contenido sea un diccionario y no esté corrupto
+            return data if isinstance(data, dict) else {}
+    except (json.JSONDecodeError, IOError):
+        # Si el archivo está corrupto o no se puede leer, devolvemos vacío para evitar que la app crashee
+        return {}
 
 def guardar_datos(datos):
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(datos, f, indent=4, ensure_ascii=False)
+    try:
+        with open(DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(datos, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        st.error(f"Error al guardar datos: {e}")
 
 def obtener_fecha_hoy():
     ahora = datetime.now()
@@ -148,8 +155,10 @@ elif st.session_state.seccion == 'Jugadores':
 elif st.session_state.seccion == 'Staff':
     st.header("🛡️ Acceso Staff")
     if st.text_input("Contraseña", type="password") == "123456":
+        # Forzamos la carga de datos desde el archivo físico cada vez que se accede a Staff
         db_s = cargar_datos()
-        # ACUMULACIÓN DE FECHAS: Extrae todas las fechas únicas del JSON
+        
+        # Extraer todas las fechas únicas del JSON
         fechas_disponibles = sorted(list(set(r["fecha"] for h in db_s.values() for r in h)), reverse=True)
         
         if fechas_disponibles:
@@ -176,3 +185,4 @@ elif st.session_state.seccion == 'Staff':
                     guardar_datos({}); st.rerun()
         else:
             st.info("No hay datos registrados en el historial.")
+
